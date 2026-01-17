@@ -1,6 +1,7 @@
 from __future__ import annotations
 import undetected_chromedriver as uc
 import logging
+import shutil
 from typing import Literal
 from pydantic import BaseModel, ConfigDict
 from semantic_version import Version
@@ -38,13 +39,15 @@ class Config(BaseModel):
             # use new headless flag for modern Chrome
             options.add_argument("--headless=new")
         # Initialize undetected_chromedriver with correct service
-        driver = uc.Chrome(options=options, service=service)
+        driver_path=shutil.which("undetected-chromedriver")
+        browser_path=shutil.which(self.browser)
+        driver = uc.Chrome(options=options, service=service, driver_executable_path=driver_path, browser_executable_path=browser_path)
         return driver
 
     def config_logging(self):
         level = getattr(logging, self.logging_level)
         logging.basicConfig(level=level)
-    
+
     @classmethod
     def from_dict(cls, data: dict) -> tuple[Config, bool]:
         """
@@ -61,4 +64,4 @@ class Config(BaseModel):
         if data_version < Version("0.2.0"):
             data["viewer_size"] = cls.viewer_size
         return Config(**data), True
-        
+
