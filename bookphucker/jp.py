@@ -1,25 +1,26 @@
-import ujson as json
-import bs4
 import io
 import logging
 import time
-from typing import cast
-from rich.progress import track
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.common.exceptions import NoSuchElementException, TimeoutException
-from selenium.common.exceptions import JavascriptException
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from time import sleep
-from pathlib import Path
-from bookphucker import Config
-from contextlib import suppress
-from PIL import Image
 from base64 import b64decode
 from collections import deque
+from contextlib import suppress
+from pathlib import Path
+from time import sleep
+from typing import cast
+
+import bs4
+import ujson as json
+from bookphucker import Config
+from PIL import Image
+from rich.progress import track
+from selenium import webdriver
+from selenium.common.exceptions import JavascriptException, NoSuchElementException, TimeoutException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
 from .exc import RequiresCapcha
-from .utils import find_click, save_cookies, recover_cookies
+from .utils import find_click, recover_cookies, save_cookies
 
 domain = "bookwalker.jp"
 
@@ -41,24 +42,25 @@ def login(driver: webdriver.Chrome, username: str, password: str, error_on_captc
     """
     Leave username and password empty for manual login
     """
-    if (recover_cookies(driver, f"https://{domain}/")
+    if (
+        recover_cookies(driver, f"https://{domain}/")
         and recover_cookies(driver, f"https://member.{domain}/app/03/my/profile")
-            and validate_login(driver)):
+        and validate_login(driver)
+    ):
         logging.info("Recovered cookies")
         return
     driver.delete_all_cookies()
     driver.get(f"https://{domain}/")
     driver.execute_script("sendGa(1,'グローバルナビ','クリック','ヘッダログイン');")
     driver.get(f"https://member.{domain}/app/03/webstore/cooperation?r=top%2F")
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.ID, "mailAddress")))
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "mailAddress")))
 
     if username or password:
         sleep(2)
         driver.find_element(By.ID, "mailAddress").send_keys(username)
-        sleep(.2)
+        sleep(0.2)
         driver.find_element(By.ID, "password").send_keys(password)
-        sleep(.2)
+        sleep(0.2)
 
         try:
             find_click(driver, By.ID, "loginBtn", 1)
@@ -68,8 +70,12 @@ def login(driver: webdriver.Chrome, username: str, password: str, error_on_captc
             with suppress(TimeoutException):
                 WebDriverWait(driver, 2).until(
                     EC.visibility_of_element_located(
-                        (By.CSS_SELECTOR,
-                         "iframe[src^='https://www.recaptcha.net/recaptcha/api2/bframe']")))
+                        (
+                            By.CSS_SELECTOR,
+                            "iframe[src^='https://www.recaptcha.net/recaptcha/api2/bframe']",
+                        )
+                    )
+                )
                 if error_on_captcha:
                     raise RequiresCapcha()
     else:
@@ -79,8 +85,7 @@ def login(driver: webdriver.Chrome, username: str, password: str, error_on_captc
     timeout = 10
     with suppress(NoSuchElementException):
         if driver.find_element(
-            By.CSS_SELECTOR,
-            "iframe[src^='https://www.recaptcha.net/recaptcha/api2/bframe']"
+            By.CSS_SELECTOR, "iframe[src^='https://www.recaptcha.net/recaptcha/api2/bframe']"
         ).is_displayed():
             timeout = 180
     while True:
@@ -89,7 +94,7 @@ def login(driver: webdriver.Chrome, username: str, password: str, error_on_captc
             break
         if time.time() - init_time > timeout:
             raise TimeoutException("Cookies retrieval timeout")
-        sleep(.1)
+        sleep(0.1)
 
     save_cookies(driver, f"https://{domain}/")
     save_cookies(driver, f"https://member.{domain}/app/03/my/profile")
@@ -103,57 +108,58 @@ def logout(driver: webdriver.Chrome):
 def wait4loading(driver: webdriver.Chrome, timeout: int = 30):
     # wait until all loading overlays have disappeared
     WebDriverWait(driver, timeout).until_not(
-        lambda d: any(e.is_displayed()
-                      for e in d.find_elements(By.CLASS_NAME, "loading"))
+        lambda d: any(e.is_displayed() for e in d.find_elements(By.CLASS_NAME, "loading"))
     )
     # Debug: print the CSS visibility for each loading element
-    print([e.get_attribute("style")
-          for e in driver.find_elements(By.CLASS_NAME, "loading")])
+    print([e.get_attribute("style") for e in driver.find_elements(By.CLASS_NAME, "loading")])
 
 
 def get_menu(driver: webdriver.Chrome) -> str:
     obj_name = driver.execute_script(
         "for (let k in NFBR.a6G.Initializer){"
-        "if (NFBR.a6G.Initializer[k]['menu'] !== undefined){ return k; }}")
+        "if (NFBR.a6G.Initializer[k]['menu'] !== undefined){ return k; }}"
+    )
     return f"NFBR.a6G.Initializer.{obj_name}.menu"
 
 
 def get_total_pages(driver: webdriver.Chrome):
-    return driver.execute_script(
-        f"return {get_menu(driver)}.model.attributes.a2u.r8q.length")
+    return driver.execute_script(f"return {get_menu(driver)}.model.attributes.a2u.r8q.length")
 
 
 def get_total_spreads(driver: webdriver.Chrome):
-    return driver.execute_script(
-        f"return {get_menu(driver)}.model.attributes.a2u.r8q.length")
+    return driver.execute_script(f"return {get_menu(driver)}.model.attributes.a2u.r8q.length")
+
 
 def get_current_page(driver: webdriver.Chrome):
     pages = driver.execute_script(
-        f"return {get_menu(driver)}.model.attributes.viewera6e.getPageIndex()")
-    return pages+1
+        f"return {get_menu(driver)}.model.attributes.viewera6e.getPageIndex()"
+    )
+    return pages + 1
 
 
 def get_current_spread(driver: webdriver.Chrome):
     return 1 + driver.execute_script(
-        f"return {get_menu(driver)}.model.attributes.viewera6e.getSpreadIndex()")
+        f"return {get_menu(driver)}.model.attributes.viewera6e.getSpreadIndex()"
+    )
 
 
 def go2page(driver: webdriver.Chrome, page: int):
-    driver.execute_script(f"{get_menu(driver)}.options.a6l.moveToPage({page-1});")
+    driver.execute_script(f"{get_menu(driver)}.options.a6l.moveToPage({page - 1});")
 
 
 def go2spread(driver: webdriver.Chrome, spread: int):
     page_index = driver.execute_script(
-        f"return {get_menu(driver)}.model.attributes.a2u.r8q[{spread-1}].pageIndex")
-    go2page(driver, page_index+1)
+        f"return {get_menu(driver)}.model.attributes.a2u.r8q[{spread - 1}].pageIndex"
+    )
+    go2page(driver, page_index + 1)
 
 
 def download_book(driver: webdriver.Chrome, cfg: Config, book_uuid: str, overwrite):
     logging.info("Downloading book %s", book_uuid)
-    driver.get(
-        f"https://member.{domain}/app/03/webstore/cooperation?r=de{book_uuid}%2F")
+    driver.get(f"https://member.{domain}/app/03/webstore/cooperation?r=de{book_uuid}%2F")
     WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "t-c-product-main-data__title")))
+        EC.presence_of_element_located((By.CLASS_NAME, "t-c-product-main-data__title"))
+    )
 
     soup = bs4.BeautifulSoup(driver.page_source, "lxml")
 
@@ -162,37 +168,51 @@ def download_book(driver: webdriver.Chrome, cfg: Config, book_uuid: str, overwri
         raise ValueError("Title not found")
     title = title_blk.text.strip()
     authors_blk = soup.find(class_="t-c-product-main-data__authors")
-    authors = [a.text.strip() for a in cast(bs4.Tag, authors_blk).find_all("dd")] if authors_blk else []
+    authors = (
+        [a.text.strip() for a in cast(bs4.Tag, authors_blk).find_all("dd")] if authors_blk else []
+    )
 
     logging.info("Titled %s by %s", title, ", ".join(authors))
 
     driver.set_window_size(*cfg.viewer_size)
 
     with suppress(TimeoutException):
-        WebDriverWait(driver, 3).until(EC.presence_of_element_located(
-            (By.CLASS_NAME, "gdpr-accept"))
+        WebDriverWait(driver, 3).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "gdpr-accept"))
         )
         find_click(driver, By.CLASS_NAME, "gdpr-accept")
 
+    try:
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.CLASS_NAME, "c-o-side-icon-button"))
+        )
+        find_click(driver, By.CLASS_NAME, "c-o-side-icon-button")
+    except TimeoutException:
+        logging.info("Ten minutes free reading button not found")
+
     WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "t-c-read-button")))
+        EC.presence_of_element_located((By.CLASS_NAME, "t-c-read-button"))
+    )
 
     find_click(driver, By.CLASS_NAME, "t-c-read-button")
 
     save_dir = Path(f"babies/{title}")
     save_dir.mkdir(exist_ok=True, parents=True)
     meta_path = save_dir / "meta.json"
-    meta_path.write_text(json.dumps(
-        {"title": title, "authors": authors},
-        ensure_ascii=False, indent=2), encoding="utf-8")
+    meta_path.write_text(
+        json.dumps({"title": title, "authors": authors}, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
 
     driver.switch_to.window(driver.window_handles[-1])
 
     WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, ".currentScreen canvas")))
+        EC.presence_of_element_located((By.CSS_SELECTOR, ".currentScreen canvas"))
+    )
 
     WebDriverWait(driver, 30).until(
-        EC.invisibility_of_element_located((By.CLASS_NAME, "progressbar")))
+        EC.invisibility_of_element_located((By.CLASS_NAME, "progressbar"))
+    )
 
     init_time = time.time()
     while True:
@@ -209,7 +229,9 @@ def download_book(driver: webdriver.Chrome, cfg: Config, book_uuid: str, overwri
     go2spread(driver, 1)
     sleep(2)
 
-    for current_spread in track(range(1, total_spreads + 1), description="Downloading", total=total_spreads):
+    for current_spread in track(
+        range(1, total_spreads + 1), description="Downloading", total=total_spreads
+    ):
         retry = 0
         savename = save_dir / f"page_{current_spread}.png"
         if savename.exists() and not overwrite:
@@ -218,13 +240,14 @@ def download_book(driver: webdriver.Chrome, cfg: Config, book_uuid: str, overwri
         go2spread(driver, current_spread)
         while get_current_spread(driver) != current_spread:
             sleep(0.1)
-        sleep(.1)
+        sleep(0.1)
         wait4loading(driver)
         logging.debug("Getting page %s out of %s", current_spread, total_spreads)
         canvas = driver.find_element(By.CSS_SELECTOR, ".currentScreen canvas")
         while retry < max_retries:
             canvas_base64 = driver.execute_script(
-                "return arguments[0].toDataURL('image/png').slice(21);", canvas)
+                "return arguments[0].toDataURL('image/png').slice(21);", canvas
+            )
             img_bytes = b64decode(canvas_base64)
             img = Image.open(io.BytesIO(img_bytes))
             if all(all(v == 0 for v in c) for c in img.getdata()):
@@ -233,8 +256,7 @@ def download_book(driver: webdriver.Chrome, cfg: Config, book_uuid: str, overwri
                 prev_imgs.append(img_bytes)
                 break
             retry += 1
-            logging.debug("Retrying page %s (%s/%s)",
-                          current_spread, retry, max_retries)
+            logging.debug("Retrying page %s (%s/%s)", current_spread, retry, max_retries)
             sleep(0.3)
         if retry == max_retries:
             logging.warning("Potentially repeated page %s", current_spread)
