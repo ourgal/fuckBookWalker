@@ -190,12 +190,6 @@ def download_book(driver: webdriver.Chrome, cfg: Config, book_uuid: str, overwri
     except TimeoutException:
         logging.info("Ten minutes free reading button not found")
 
-    WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.CLASS_NAME, "t-c-read-button"))
-    )
-
-    find_click(driver, By.CLASS_NAME, "t-c-read-button")
-
     save_dir = Path(f"babies/{title}")
     save_dir.mkdir(exist_ok=True, parents=True)
     meta_path = save_dir / "meta.json"
